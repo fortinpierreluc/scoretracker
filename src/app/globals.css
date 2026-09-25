@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --font-sans: var(--font-geist-sans);
+  --font-display: var(--font-oswald);
+}
+
+html,
+body {
+  min-height: 100%;
+  background: #07090c;
+  color: #f4f7fb;
+}
+
+body {
+  background-image:
+    radial-gradient(ellipse 80% 50% at 50% -20%, rgba(56, 189, 248, 0.12), transparent),
+    linear-gradient(180deg, #0b0f14 0%, #07090c 40%);
+  background-attachment: fixed;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #2a3340 transparent;
+}
+
+::selection {
+  background: rgba(56, 189, 248, 0.28);
+}
