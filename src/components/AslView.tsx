@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { GameCard } from "@/components/GameCard";
+import { RangeFilters } from "@/components/RangeFilters";
 import { TeamLogo } from "@/components/TeamLogo";
 import { headingForDate } from "@/lib/dates";
 import type { AslTeamRowDto, GameDto, GameRange, LastFiveResult } from "@/lib/types";
@@ -92,25 +93,7 @@ function AslSchedule() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap gap-2">
-        {ranges.map((item) => {
-          const active = item.id === range;
-          return (
-            <button
-              key={item.id}
-              type="button"
-              onClick={() => setRange(item.id)}
-              className={`rounded-full px-4 py-2 text-sm transition ${
-                active
-                  ? "bg-white text-slate-950 shadow-[0_0_0_1px_rgba(255,255,255,0.2)]"
-                  : "bg-white/6 text-slate-300 hover:bg-white/10"
-              }`}
-            >
-              {item.label}
-            </button>
-          );
-        })}
-      </div>
+      <RangeFilters ranges={ranges} value={range} onChange={setRange} />
 
       {loading ? (
         <div className="space-y-3">

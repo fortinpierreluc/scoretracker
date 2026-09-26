@@ -29,20 +29,22 @@ function TeamBlock({
   logoUrl,
   align,
   followed,
+  className = "",
 }: {
   name: string;
   category: string;
   logoUrl: string | null;
   align: "left" | "right";
   followed: boolean;
+  className?: string;
 }) {
   return (
     <div
-      className={`flex min-w-0 items-center gap-3 ${
-        align === "right" ? "sm:flex-row-reverse sm:text-right" : ""
-      }`}
+      className={`flex min-w-0 items-center gap-2 sm:gap-3 ${
+        align === "right" ? "flex-row-reverse text-right" : ""
+      } ${className}`}
     >
-      <TeamLogo src={logoUrl} alt={name} size={48} />
+      <TeamLogo src={logoUrl} alt={name} size={44} />
       <div className="min-w-0 flex-1">
         <p
           className={`break-words font-[family-name:var(--font-oswald)] text-base font-semibold uppercase leading-tight tracking-[0.04em] sm:text-[15px] sm:tracking-[0.08em] ${
@@ -80,7 +82,7 @@ export function GameCard({ game }: { game: GameDto }) {
         </p>
       </div>
 
-      <div className="flex flex-col gap-4 px-4 py-4 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-6 sm:px-6">
+      <div className="grid grid-cols-2 items-center gap-x-3 gap-y-3 px-4 py-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-6 sm:px-6">
         <TeamBlock
           name={game.away.shortName}
           category={game.category}
@@ -89,7 +91,16 @@ export function GameCard({ game }: { game: GameDto }) {
           followed={game.away.isFollowed}
         />
 
-        <div className="flex flex-col items-center justify-center border-y border-white/6 py-3 text-center sm:min-w-[110px] sm:border-y-0 sm:py-0">
+        <TeamBlock
+          name={game.home.shortName}
+          category={game.category}
+          logoUrl={game.home.logoUrl}
+          align="right"
+          followed={game.home.isFollowed}
+          className="sm:col-start-3"
+        />
+
+        <div className="col-span-2 flex flex-col items-center justify-center text-center sm:col-span-1 sm:col-start-2 sm:row-start-1 sm:min-w-[110px]">
           {game.status === "upcoming" ? (
             <>
               <p className="font-[family-name:var(--font-oswald)] text-[12px] font-medium uppercase tracking-[0.18em] text-slate-400">
@@ -130,14 +141,6 @@ export function GameCard({ game }: { game: GameDto }) {
             </>
           )}
         </div>
-
-        <TeamBlock
-          name={game.home.shortName}
-          category={game.category}
-          logoUrl={game.home.logoUrl}
-          align="right"
-          followed={game.home.isFollowed}
-        />
       </div>
     </article>
   );
