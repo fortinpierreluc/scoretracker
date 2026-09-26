@@ -23,9 +23,9 @@ export function AppShell() {
   return (
     <div className="mx-auto min-h-screen w-full max-w-4xl px-4 pb-16 pt-8 sm:px-6">
       <header className="mb-8">
-        <h1 className="font-[family-name:var(--font-oswald)] text-2xl font-semibold uppercase tracking-[0.08em] text-white sm:text-3xl">
-          Hockey 2026-2027
-          <span className="mx-2.5 font-normal text-slate-500">|</span>
+        <h1 className="font-[family-name:var(--font-oswald)] text-2xl font-semibold uppercase leading-tight tracking-[0.04em] text-white sm:text-3xl sm:tracking-[0.08em]">
+          Hockey <span className="whitespace-nowrap">2026-2027</span>
+          <span className="mx-2 font-normal text-slate-500 sm:mx-2.5">|</span>
           <span className="text-slate-200">Suivi des équipes</span>
         </h1>
       </header>

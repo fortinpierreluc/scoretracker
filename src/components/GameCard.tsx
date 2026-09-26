@@ -38,18 +38,22 @@ function TeamBlock({
 }) {
   return (
     <div
-      className={`flex min-w-0 items-center gap-3 ${align === "right" ? "flex-row-reverse text-right" : ""}`}
+      className={`flex min-w-0 items-center gap-3 ${
+        align === "right" ? "sm:flex-row-reverse sm:text-right" : ""
+      }`}
     >
-      <TeamLogo src={logoUrl} alt={name} size={52} />
-      <div className="min-w-0">
+      <TeamLogo src={logoUrl} alt={name} size={48} />
+      <div className="min-w-0 flex-1">
         <p
-          className={`truncate font-[family-name:var(--font-oswald)] text-[15px] font-semibold uppercase tracking-[0.08em] ${
+          className={`break-words font-[family-name:var(--font-oswald)] text-base font-semibold uppercase leading-tight tracking-[0.04em] sm:text-[15px] sm:tracking-[0.08em] ${
             followed ? "text-white" : "text-slate-200"
           }`}
         >
           {name}
         </p>
-        <p className="truncate text-[11px] text-slate-400">{category}</p>
+        <p className="mt-0.5 break-words text-xs leading-snug text-slate-400 sm:text-[11px]">
+          {category}
+        </p>
       </div>
     </div>
   );
@@ -65,18 +69,18 @@ export function GameCard({ game }: { game: GameDto }) {
 
   return (
     <article className="overflow-hidden rounded-2xl border border-white/8 bg-[#12171f]/90 shadow-[0_8px_30px_rgba(0,0,0,0.28)] backdrop-blur-sm">
-      <div className="flex items-center justify-between gap-4 border-b border-white/6 px-4 py-2.5 text-[11px] uppercase tracking-[0.14em] text-slate-400">
-        <p className="flex min-w-0 items-center gap-2">
-          <span className="inline-block h-1.5 w-1.5 rounded-full bg-sky-400/80" />
-          <span className="truncate">{formatArenaLine(game.arena, game.city)}</span>
+      <div className="flex flex-col gap-1 border-b border-white/6 px-4 py-2.5 text-[11px] uppercase leading-snug tracking-[0.08em] text-slate-400 sm:flex-row sm:items-center sm:justify-between sm:gap-4 sm:tracking-[0.14em]">
+        <p className="flex min-w-0 items-start gap-2">
+          <span className="mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full bg-sky-400/80" />
+          <span className="break-words">{formatArenaLine(game.arena, game.city)}</span>
         </p>
-        <p className="shrink-0 text-right text-[10px] text-slate-500">
+        <p className="pl-3.5 text-[10px] text-slate-500 sm:shrink-0 sm:pl-0 sm:text-right">
           Saison régulière
           {game.number ? ` · ${game.number}` : ""}
         </p>
       </div>
 
-      <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 px-4 py-4 sm:gap-6 sm:px-6">
+      <div className="flex flex-col gap-4 px-4 py-4 sm:grid sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-center sm:gap-6 sm:px-6">
         <TeamBlock
           name={game.away.shortName}
           category={game.category}
@@ -85,7 +89,7 @@ export function GameCard({ game }: { game: GameDto }) {
           followed={game.away.isFollowed}
         />
 
-        <div className="flex min-w-[110px] flex-col items-center justify-center text-center">
+        <div className="flex flex-col items-center justify-center border-y border-white/6 py-3 text-center sm:min-w-[110px] sm:border-y-0 sm:py-0">
           {game.status === "upcoming" ? (
             <>
               <p className="font-[family-name:var(--font-oswald)] text-[12px] font-medium uppercase tracking-[0.18em] text-slate-400">
