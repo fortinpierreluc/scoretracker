@@ -165,6 +165,7 @@ function mapLhsaaqGame(
     },
     homeScore: status === "upcoming" ? null : game.LocalResult,
     awayScore: status === "upcoming" ? null : game.VisitorResult,
+    source: "lhsaaq",
   };
 }
 

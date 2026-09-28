@@ -18,11 +18,23 @@ export function shiftDate(isoDate: string, days: number): string {
   return utc.toISOString().slice(0, 10);
 }
 
+function inclusiveRange(startOffset: number, dayCount: number) {
+  const from = shiftDate(todayInMontreal(), startOffset);
+  return { from, to: shiftDate(from, dayCount - 1) };
+}
+
 export function rangeToDates(range: GameRange): { from: string; to: string } {
   const today = todayInMontreal();
   if (range === "today") return { from: today, to: today };
-  if (range === "past7") return { from: shiftDate(today, -7), to: shiftDate(today, -1) };
-  return { from: shiftDate(today, 1), to: shiftDate(today, 7) };
+  if (range === "past7") return inclusiveRange(-7, 7);
+  return inclusiveRange(1, 7);
+}
+
+export function sortGamesByStart<T extends { startTime: string }>(games: T[], range: GameRange): T[] {
+  const direction = range === "past7" ? -1 : 1;
+  return [...games].sort(
+    (a, b) => direction * (new Date(a.startTime).getTime() - new Date(b.startTime).getTime()),
+  );
 }
 
 export function headingForDate(isoDate: string) {

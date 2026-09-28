@@ -22,6 +22,7 @@ import {
   getSpordleStandingsOptions,
   getSpordleTeamSummaries,
 } from "@/lib/spordle";
+import { sortGamesByStart } from "@/lib/dates";
 import { getAslGames, getAslTeamRows } from "@/lib/asl";
 import type { AslTeamRowDto, FollowedTeamDto, GameDto, GameRange, StandingsDto } from "@/lib/types";
 
@@ -32,9 +33,7 @@ export async function getGames(range: GameRange): Promise<GameDto[]> {
     getLhjmqGames(range).catch(() => [] as GameDto[]),
   ]);
 
-  return [...spordle, ...lhsaaq, ...lhjmq].sort(
-    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-  );
+  return sortGamesByStart([...spordle, ...lhsaaq, ...lhjmq], range);
 }
 
 export { isArenaId };
@@ -51,9 +50,7 @@ export async function getArenaGames(arenaId: ArenaId, range: GameRange): Promise
     unique.set(`${game.date}-${game.startTime}-${game.home.id}-${game.away.id}`, game);
   }
 
-  return [...unique.values()].sort(
-    (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime(),
-  );
+  return sortGamesByStart([...unique.values()], range);
 }
 
 export async function getFollowedTeamSummaries(): Promise<FollowedTeamDto[]> {

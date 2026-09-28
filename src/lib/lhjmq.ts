@@ -147,6 +147,7 @@ function mapGame(game: HtGame, followedIds: Set<number>): GameDto {
     },
     homeScore: status === "upcoming" ? null : Number(game.home_goal_count),
     awayScore: status === "upcoming" ? null : Number(game.visiting_goal_count),
+    source: "lhjmq",
   };
 }
 

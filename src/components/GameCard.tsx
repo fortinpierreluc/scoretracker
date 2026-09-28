@@ -1,4 +1,5 @@
 import type { GameDto } from "@/lib/types";
+import { GoalSummaryButton } from "@/components/GoalSummary";
 import { TeamLogo } from "@/components/TeamLogo";
 
 function formatGameDay(iso: string) {
@@ -112,6 +113,12 @@ export function GameCard({ game }: { game: GameDto }) {
             </>
           ) : (
             <>
+              <GoalSummaryButton
+                gameId={game.id}
+                source={game.source}
+                awayName={game.away.shortName}
+                homeName={game.home.shortName}
+              />
               <div className="flex items-center gap-3 font-[family-name:var(--font-oswald)] text-[32px] font-semibold leading-none tracking-wide">
                 <span className={game.away.isFollowed ? "text-white" : "text-slate-200"}>
                   {game.awayScore ?? "–"}

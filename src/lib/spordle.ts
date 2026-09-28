@@ -95,7 +95,7 @@ function followedSpordleIds() {
   return new Set(spordleTeams().map((team) => team.id));
 }
 
-async function spordle<T>(path: string, filter?: unknown): Promise<T> {
+async function spordle<T>(path: string, filter?: unknown, options?: { fresh?: boolean }): Promise<T> {
   const url = new URL(`${API_URL}${path}`);
   if (filter !== undefined) {
     url.searchParams.set("filter", JSON.stringify(filter));
@@ -103,7 +103,7 @@ async function spordle<T>(path: string, filter?: unknown): Promise<T> {
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `API-Key ${API_KEY}` },
-    next: { revalidate: 30 },
+    ...(options?.fresh ? { cache: "no-store" } : { next: { revalidate: 30 } }),
   });
 
   if (!res.ok) {
@@ -268,6 +268,7 @@ function mapGame(
     away: teamSide(game.awayTeam, game.awayTeamId, followedIds),
     homeScore: status === "upcoming" ? null : scoreFor(game, game.homeTeamId),
     awayScore: status === "upcoming" ? null : scoreFor(game, game.awayTeamId),
+    source: "spordle",
   };
 }
 

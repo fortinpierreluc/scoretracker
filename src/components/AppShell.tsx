@@ -22,12 +22,18 @@ export function AppShell() {
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-4xl px-4 pb-16 pt-8 sm:px-6">
-      <header className="mb-8">
-        <h1 className="font-[family-name:var(--font-oswald)] text-2xl font-semibold uppercase leading-tight tracking-[0.04em] text-white sm:text-3xl sm:tracking-[0.08em]">
+      <header className="mb-8 flex items-center justify-between gap-3">
+        <h1 className="min-w-0 font-[family-name:var(--font-oswald)] text-2xl font-semibold uppercase leading-tight tracking-[0.04em] text-white sm:text-3xl sm:tracking-[0.08em]">
           Hockey <span className="whitespace-nowrap">2026-2027</span>
           <span className="mx-2 font-normal text-slate-500 sm:mx-2.5">|</span>
-          <span className="text-slate-200">Suivi des équipes</span>
+          <span className="inline-block whitespace-nowrap text-slate-200">Suivi des équipes</span>
         </h1>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo.png"
+          alt=""
+          className="h-11 w-auto shrink-0 sm:h-14"
+        />
       </header>
 
       <nav className="mb-6 flex gap-1 rounded-full border border-white/8 bg-white/4 p-1">

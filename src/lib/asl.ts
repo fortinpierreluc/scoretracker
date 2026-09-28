@@ -1,5 +1,5 @@
 import { ASL_CLUB_OFFICE_ID, ASL_LEAGUE_OFFICE_ID, aslTeamUrl } from "@/data/asl";
-import { rangeToDates, shiftDate, todayInMontreal } from "@/lib/dates";
+import { rangeToDates, shiftDate, sortGamesByStart, todayInMontreal } from "@/lib/dates";
 import {
   formatCategory,
   getLeagueGamesForTeams,
@@ -99,7 +99,8 @@ export async function getAslGames(range: GameRange): Promise<GameDto[]> {
   const teams = await getAslTeams();
   const ids = teams.map((team) => team.id);
   const { from, to } = rangeToDates(range);
-  return getLeagueGamesForTeams(ASL_LEAGUE_OFFICE_ID, ids, from, to, new Set(ids));
+  const games = await getLeagueGamesForTeams(ASL_LEAGUE_OFFICE_ID, ids, from, to, new Set(ids));
+  return sortGamesByStart(games, range);
 }
 
 function resultForTeam(game: GameDto, teamId: number): LastFiveResult | null {

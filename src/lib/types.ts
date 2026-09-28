@@ -1,5 +1,7 @@
 export type GameRange = "today" | "past7" | "next7";
 
+export type GameSource = "spordle" | "lhjmq" | "lhsaaq";
+
 export type TeamSide = {
   id: number;
   name: string;
@@ -24,6 +26,17 @@ export type GameDto = {
   away: TeamSide;
   homeScore: number | null;
   awayScore: number | null;
+  source: GameSource;
+};
+
+export type GoalEventDto = {
+  teamName: string;
+  logoUrl: string | null;
+  scorer: string;
+  assists: string[];
+  time: string;
+  period: string;
+  side: "home" | "away";
 };
 
 export type FollowedTeamDto = {
