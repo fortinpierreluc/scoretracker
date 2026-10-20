@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { GameCard } from "@/components/GameCard";
 import { RangeFilters } from "@/components/RangeFilters";
+import { RefreshFooter } from "@/components/RefreshFooter";
 import { TeamLogo } from "@/components/TeamLogo";
 import { headingForDate } from "@/lib/dates";
+import { useLiveData } from "@/lib/use-live-data";
 import type { AslTeamRowDto, GameDto, GameRange, LastFiveResult } from "@/lib/types";
 
 const ranges: Array<{ id: GameRange; label: string }> = [
@@ -58,37 +60,14 @@ function LastFive({ results }: { results: LastFiveResult[] }) {
 
 function AslSchedule() {
   const [range, setRange] = useState<GameRange>("today");
-  const [games, setGames] = useState<GameDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let first = true;
-    const load = async () => {
-      if (first) setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/asl/games?range=${range}`, { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Impossible de charger l'horaire ASL");
-        if (!cancelled) setGames(data.games ?? []);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erreur de chargement");
-      } finally {
-        first = false;
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    load();
-    const timer = window.setInterval(load, 45000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
+  const { data, loading, error, refreshing, updatedAt, refresh } = useLiveData(async () => {
+    const res = await fetch(`/api/asl/games?range=${range}`, { cache: "no-store" });
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.error ?? "Impossible de charger l'horaire ASL");
+    return (payload.games ?? []) as GameDto[];
   }, [range]);
 
+  const games = useMemo(() => data ?? [], [data]);
   const grouped = useMemo(() => groupByDate(games), [games]);
 
   return (
@@ -127,6 +106,10 @@ function AslSchedule() {
           </div>
         ))
       )}
+
+      {!loading ? (
+        <RefreshFooter onRefresh={refresh} refreshing={refreshing} updatedAt={updatedAt} />
+      ) : null}
     </div>
   );
 }
@@ -138,29 +121,14 @@ function formatRank(ranking: number | null, teamCount: number | null) {
 }
 
 function AslTeams() {
-  const [teams, setTeams] = useState<AslTeamRowDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/asl/teams", { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Impossible de charger les équipes ASL");
-        if (!cancelled) setTeams(data.teams ?? []);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erreur de chargement");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  const { data, loading, error, refreshing, updatedAt, refresh } = useLiveData(async () => {
+    const res = await fetch("/api/asl/teams", { cache: "no-store" });
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.error ?? "Impossible de charger les équipes ASL");
+    return (payload.teams ?? []) as AslTeamRowDto[];
   }, []);
+
+  const teams = data ?? [];
 
   if (loading) {
     return (
@@ -172,48 +140,49 @@ function AslTeams() {
     );
   }
 
-  if (error) {
-    return (
-      <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-6 text-sm text-rose-200">
-        {error}
-      </p>
-    );
-  }
-
   return (
-    <div className="overflow-x-auto rounded-2xl border border-white/8 bg-[#12171f]/90">
-      <div className="min-w-[40rem]">
-        <div className="grid grid-cols-[minmax(9rem,1.25fr)_minmax(8rem,1.1fr)_4.4rem_4.1rem_7.4rem] gap-3 border-b border-white/6 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">
-          <span>Équipe</span>
-          <span>Entraîneur-chef</span>
-          <span>Fiche</span>
-          <span>Rang</span>
-          <span className="text-right">5 derniers</span>
+    <div className="space-y-6">
+      {error ? (
+        <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-6 text-sm text-rose-200">
+          {error}
+        </p>
+      ) : (
+        <div className="overflow-x-auto rounded-2xl border border-white/8 bg-[#12171f]/90">
+          <div className="min-w-[40rem]">
+            <div className="grid grid-cols-[minmax(9rem,1.25fr)_minmax(8rem,1.1fr)_4.4rem_4.1rem_7.4rem] gap-3 border-b border-white/6 px-3 py-2 text-[10px] uppercase tracking-[0.16em] text-slate-500">
+              <span>Équipe</span>
+              <span>Entraîneur-chef</span>
+              <span>Fiche</span>
+              <span>Rang</span>
+              <span className="text-right">5 derniers</span>
+            </div>
+            <ul>
+              {teams.map((team) => (
+                <li
+                  key={team.id}
+                  className="grid grid-cols-[minmax(9rem,1.25fr)_minmax(8rem,1.1fr)_4.4rem_4.1rem_7.4rem] items-center gap-3 border-b border-white/6 px-3 py-2 last:border-b-0"
+                >
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <TeamLogo src={team.logoUrl} alt={team.shortName} size={28} />
+                    <p className="truncate font-[family-name:var(--font-oswald)] text-sm font-semibold uppercase tracking-[0.06em] text-white">
+                      {team.shortName}
+                    </p>
+                  </div>
+                  <p className="truncate text-sm text-slate-300">{team.coach ?? "—"}</p>
+                  <p className="font-mono text-sm tabular-nums text-slate-200">{team.record}</p>
+                  <p className="text-sm tabular-nums text-sky-300/90">
+                    {formatRank(team.ranking, team.teamCount)}
+                  </p>
+                  <div className="justify-self-end">
+                    <LastFive results={team.lastFive} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-        <ul>
-          {teams.map((team) => (
-            <li
-              key={team.id}
-              className="grid grid-cols-[minmax(9rem,1.25fr)_minmax(8rem,1.1fr)_4.4rem_4.1rem_7.4rem] items-center gap-3 border-b border-white/6 px-3 py-2 last:border-b-0"
-            >
-              <div className="flex min-w-0 items-center gap-2.5">
-                <TeamLogo src={team.logoUrl} alt={team.shortName} size={28} />
-                <p className="truncate font-[family-name:var(--font-oswald)] text-sm font-semibold uppercase tracking-[0.06em] text-white">
-                  {team.shortName}
-                </p>
-              </div>
-              <p className="truncate text-sm text-slate-300">{team.coach ?? "—"}</p>
-              <p className="font-mono text-sm tabular-nums text-slate-200">{team.record}</p>
-              <p className="text-sm tabular-nums text-sky-300/90">
-                {formatRank(team.ranking, team.teamCount)}
-              </p>
-              <div className="justify-self-end">
-                <LastFive results={team.lastFive} />
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      )}
+      <RefreshFooter onRefresh={refresh} refreshing={refreshing} updatedAt={updatedAt} />
     </div>
   );
 }

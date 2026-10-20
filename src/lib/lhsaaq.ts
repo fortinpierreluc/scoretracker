@@ -77,7 +77,7 @@ function kreezeeTeams(): KreezeeTeamConfig[] {
 }
 
 async function kreezeeFetch<T>(url: string): Promise<T> {
-  const res = await fetch(url, { next: { revalidate: 30 } });
+  const res = await fetch(url, { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`LHSAAQ ${res.status}: ${url}`);
   }
@@ -163,8 +163,8 @@ function mapLhsaaqGame(
       logoUrl: game.VisitorTeamAvatar || null,
       isFollowed: followedIds.has(game.VisitorTeamId),
     },
-    homeScore: status === "upcoming" ? null : game.LocalResult,
-    awayScore: status === "upcoming" ? null : game.VisitorResult,
+    homeScore: status === "upcoming" ? null : game.LocalResult ?? 0,
+    awayScore: status === "upcoming" ? null : game.VisitorResult ?? 0,
     source: "lhsaaq",
   };
 }

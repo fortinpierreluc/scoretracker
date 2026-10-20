@@ -74,7 +74,7 @@ async function hockeyTech<T>(params: Record<string, string>): Promise<T> {
     url.searchParams.set(key, value);
   }
 
-  const res = await fetch(url.toString(), { next: { revalidate: 30 } });
+  const res = await fetch(url.toString(), { cache: "no-store" });
   if (!res.ok) {
     throw new Error(`LHJMQ ${res.status}: ${url.pathname}`);
   }
@@ -145,8 +145,8 @@ function mapGame(game: HtGame, followedIds: Set<number>): GameDto {
       logoUrl: logoFor(awayId),
       isFollowed: followedIds.has(awayId),
     },
-    homeScore: status === "upcoming" ? null : Number(game.home_goal_count),
-    awayScore: status === "upcoming" ? null : Number(game.visiting_goal_count),
+    homeScore: status === "upcoming" ? null : Number(game.home_goal_count) || 0,
+    awayScore: status === "upcoming" ? null : Number(game.visiting_goal_count) || 0,
     source: "lhjmq",
   };
 }

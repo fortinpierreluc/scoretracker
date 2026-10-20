@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { GameCard } from "@/components/GameCard";
 import { RangeFilters } from "@/components/RangeFilters";
+import { RefreshFooter } from "@/components/RefreshFooter";
 import { followedArenas } from "@/data/followed-arenas";
 import type { ArenaId } from "@/data/followed-arenas";
 import { headingForDate } from "@/lib/dates";
+import { useLiveData } from "@/lib/use-live-data";
 import type { GameDto, GameRange } from "@/lib/types";
 
 const ranges: Array<{ id: GameRange; label: string }> = [
@@ -30,50 +32,19 @@ function arenaLabel(arena: (typeof followedArenas)[number]) {
 export function ArenasView() {
   const [arenaId, setArenaId] = useState<ArenaId | "">("");
   const [range, setRange] = useState<GameRange>("today");
-  const [games, setGames] = useState<GameDto[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
   const selected = followedArenas.find((arena) => arena.id === arenaId);
+  const { data, loading, error, refreshing, updatedAt, refresh } = useLiveData(
+    async () => {
+      const res = await fetch(`/api/games?range=${range}&arena=${arenaId}`, { cache: "no-store" });
+      const payload = await res.json();
+      if (!res.ok) throw new Error(payload.error ?? "Impossible de charger les matchs");
+      return (payload.games ?? []) as GameDto[];
+    },
+    [arenaId, range],
+    { enabled: Boolean(arenaId) },
+  );
 
-  useEffect(() => {
-    if (!arenaId) {
-      setGames([]);
-      setLoading(false);
-      setError(null);
-      return;
-    }
-
-    let cancelled = false;
-    setGames([]);
-    setLoading(true);
-    setError(null);
-
-    const load = async (showLoader = false) => {
-      if (showLoader) setLoading(true);
-      try {
-        const res = await fetch(`/api/games?range=${range}&arena=${arenaId}`, { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Impossible de charger les matchs");
-        if (!cancelled) {
-          setGames(data.games ?? []);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erreur de chargement");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    load(true);
-    const timer = window.setInterval(() => load(false), 45000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [arenaId, range]);
-
+  const games = useMemo(() => data ?? [], [data]);
   const grouped = useMemo(() => groupByDate(games), [games]);
 
   return (
@@ -96,7 +67,7 @@ export function ArenasView() {
 
       <RangeFilters ranges={ranges} value={range} onChange={setRange} />
 
-      { !arenaId ? (
+      {!arenaId ? (
         <div className="rounded-2xl border border-dashed border-white/10 px-6 py-16 text-center">
           <p className="font-[family-name:var(--font-oswald)] text-xl uppercase tracking-[0.16em] text-slate-300">
             Choisir un aréna
@@ -137,6 +108,10 @@ export function ArenasView() {
           </div>
         ))
       )}
+
+      {arenaId && !loading ? (
+        <RefreshFooter onRefresh={refresh} refreshing={refreshing} updatedAt={updatedAt} />
+      ) : null}
     </section>
   );
 }

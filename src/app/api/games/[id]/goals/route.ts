@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getGameGoals } from "@/lib/goals";
 import type { GameSource } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 const sources: GameSource[] = ["spordle", "lhjmq", "lhsaaq"];
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {

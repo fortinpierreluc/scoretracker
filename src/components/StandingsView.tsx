@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { RefreshFooter } from "@/components/RefreshFooter";
 import { TeamLogo } from "@/components/TeamLogo";
+import { useLiveData } from "@/lib/use-live-data";
 import type { StandingsDto } from "@/lib/types";
 
 type Option = { scheduleId: number; scheduleName: string; category: string };
@@ -12,36 +14,20 @@ function formatDiff(diff: number) {
 }
 
 export function StandingsView() {
-  const [options, setOptions] = useState<Option[]>([]);
   const [scheduleId, setScheduleId] = useState<number | "">("");
-  const [standings, setStandings] = useState<StandingsDto | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      setLoading(true);
-      setError(null);
-      try {
-        const query = scheduleId ? `?scheduleId=${scheduleId}` : "";
-        const res = await fetch(`/api/standings${query}`, { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Impossible de charger le classement");
-        if (cancelled) return;
-        setOptions(data.options ?? []);
-        setStandings(data.standings ?? null);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erreur de chargement");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
+  const { data, loading, error, refreshing, updatedAt, refresh } = useLiveData(async () => {
+    const query = scheduleId ? `?scheduleId=${scheduleId}` : "";
+    const res = await fetch(`/api/standings${query}`, { cache: "no-store" });
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.error ?? "Impossible de charger le classement");
+    return {
+      options: (payload.options ?? []) as Option[],
+      standings: (payload.standings ?? null) as StandingsDto | null,
     };
   }, [scheduleId]);
+
+  const options = data?.options ?? [];
+  const standings = data?.standings ?? null;
 
   return (
     <section className="space-y-4">
@@ -149,6 +135,10 @@ export function StandingsView() {
           ))}
         </div>
       )}
+
+      {!loading ? (
+        <RefreshFooter onRefresh={refresh} refreshing={refreshing} updatedAt={updatedAt} />
+      ) : null}
     </section>
   );
 }

@@ -28,7 +28,7 @@ import type { AslTeamRowDto, FollowedTeamDto, GameDto, GameRange, StandingsDto }
 
 export async function getGames(range: GameRange): Promise<GameDto[]> {
   const [spordle, lhsaaq, lhjmq] = await Promise.all([
-    getSpordleGames(range),
+    getSpordleGames(range).catch(() => [] as GameDto[]),
     getLhsaaqGames(range).catch(() => [] as GameDto[]),
     getLhjmqGames(range).catch(() => [] as GameDto[]),
   ]);
@@ -41,7 +41,7 @@ export { isArenaId };
 export async function getArenaGames(arenaId: ArenaId, range: GameRange): Promise<GameDto[]> {
   const arena = getFollowedArena(arenaId);
   const [spordle, lhsaaq] = await Promise.all([
-    getSpordleArenaGames(arenaId, range),
+    getSpordleArenaGames(arenaId, range).catch(() => [] as GameDto[]),
     getLhsaaqArenaGames(arena, range).catch(() => [] as GameDto[]),
   ]);
 

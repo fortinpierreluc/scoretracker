@@ -140,7 +140,6 @@ async function getSpordleGoals(gameId: number): Promise<GoalEventDto[]> {
   const game = await spordle<SpordleGoalGame>(
     `/sp/games/${gameId}`,
     { include: ["goals", "homeTeam", "awayTeam"] },
-    { fresh: true },
   );
   const goals = game.goals ?? [];
   if (!goals.length) return [];
@@ -161,7 +160,6 @@ async function getSpordleGoals(gameId: number): Promise<GoalEventDto[]> {
       include: ["participant"],
       limit: 80,
     },
-    { fresh: true },
   );
 
   const nameFor = (participantId: number, teamId: number) => {

@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { TeamLogo } from "@/components/TeamLogo";
+import { RefreshFooter } from "@/components/RefreshFooter";
 import { useDisabledTeams } from "@/lib/disabled-teams";
+import { useLiveData } from "@/lib/use-live-data";
 import type { FollowedTeamDto } from "@/lib/types";
 
 function VisibilityIcon({ hidden }: { hidden: boolean }) {
@@ -44,30 +45,15 @@ function VisibilityIcon({ hidden }: { hidden: boolean }) {
 }
 
 export function TeamsView() {
-  const [teams, setTeams] = useState<FollowedTeamDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { isDisabled, toggle } = useDisabledTeams();
-
-  useEffect(() => {
-    let cancelled = false;
-    const load = async () => {
-      try {
-        const res = await fetch("/api/teams", { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Impossible de charger les équipes");
-        if (!cancelled) setTeams(data.teams ?? []);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erreur de chargement");
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
+  const { data, loading, error, refreshing, updatedAt, refresh } = useLiveData(async () => {
+    const res = await fetch("/api/teams", { cache: "no-store" });
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.error ?? "Impossible de charger les équipes");
+    return (payload.teams ?? []) as FollowedTeamDto[];
   }, []);
+
+  const teams = data ?? [];
 
   if (loading) {
     return (
@@ -77,67 +63,68 @@ export function TeamsView() {
     );
   }
 
-  if (error) {
-    return (
-      <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-6 text-sm text-rose-200">
-        {error}
-      </p>
-    );
-  }
-
   return (
-    <section className="grid gap-3 sm:grid-cols-2">
-      {teams.map((team) => {
-        const disabled = isDisabled(team.id);
-        return (
-          <article
-            key={team.id}
-            className={`relative flex items-center gap-4 rounded-2xl border p-4 pr-14 transition ${
-              disabled
-                ? "border-white/6 bg-[#12171f]/55 opacity-55"
-                : "border-white/8 bg-[#12171f]/90"
-            }`}
-          >
-            <TeamLogo src={team.logoUrl} alt={team.shortName} size={64} />
-            <div className="min-w-0">
-              <p className="font-[family-name:var(--font-oswald)] text-lg font-semibold uppercase tracking-[0.08em] text-white">
-                {team.shortName}
-              </p>
-              <p className="truncate text-sm text-slate-300">{team.nickname}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.14em] text-sky-300/80">
-                {team.category}
-              </p>
-              <p className="mt-2 text-xs text-slate-500">
-                Fiche {team.record}
-                {team.ranking ? ` · ${team.ranking}e` : ""}
-                {team.points !== null ? ` · ${team.points} pts` : ""}
-              </p>
-            </div>
-            <button
-              type="button"
-              onClick={() => toggle(team.id)}
-              aria-pressed={disabled}
-              title={
-                disabled
-                  ? `Réactiver l'horaire de ${team.shortName}`
-                  : `Désactiver l'horaire de ${team.shortName}`
-              }
-              aria-label={
-                disabled
-                  ? `Réactiver l'horaire de ${team.shortName}`
-                  : `Désactiver l'horaire de ${team.shortName}`
-              }
-              className={`absolute right-3 top-3 rounded-full p-2 transition ${
-                disabled
-                  ? "text-slate-500 hover:bg-white/8 hover:text-slate-200"
-                  : "text-slate-400 hover:bg-white/8 hover:text-white"
-              }`}
-            >
-              <VisibilityIcon hidden={disabled} />
-            </button>
-          </article>
-        );
-      })}
+    <section className="space-y-6">
+      {error ? (
+        <p className="rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-6 text-sm text-rose-200">
+          {error}
+        </p>
+      ) : (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {teams.map((team) => {
+            const disabled = isDisabled(team.id);
+            return (
+              <article
+                key={team.id}
+                className={`relative flex items-center gap-4 rounded-2xl border p-4 pr-14 transition ${
+                  disabled
+                    ? "border-white/6 bg-[#12171f]/55 opacity-55"
+                    : "border-white/8 bg-[#12171f]/90"
+                }`}
+              >
+                <TeamLogo src={team.logoUrl} alt={team.shortName} size={64} />
+                <div className="min-w-0">
+                  <p className="font-[family-name:var(--font-oswald)] text-lg font-semibold uppercase tracking-[0.08em] text-white">
+                    {team.shortName}
+                  </p>
+                  <p className="truncate text-sm text-slate-300">{team.nickname}</p>
+                  <p className="mt-1 text-xs uppercase tracking-[0.14em] text-sky-300/80">
+                    {team.category}
+                  </p>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Fiche {team.record}
+                    {team.ranking ? ` · ${team.ranking}e` : ""}
+                    {team.points !== null ? ` · ${team.points} pts` : ""}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => toggle(team.id)}
+                  aria-pressed={disabled}
+                  title={
+                    disabled
+                      ? `Réactiver l'horaire de ${team.shortName}`
+                      : `Désactiver l'horaire de ${team.shortName}`
+                  }
+                  aria-label={
+                    disabled
+                      ? `Réactiver l'horaire de ${team.shortName}`
+                      : `Désactiver l'horaire de ${team.shortName}`
+                  }
+                  className={`absolute right-3 top-3 rounded-full p-2 transition ${
+                    disabled
+                      ? "text-slate-500 hover:bg-white/8 hover:text-slate-200"
+                      : "text-slate-400 hover:bg-white/8 hover:text-white"
+                  }`}
+                >
+                  <VisibilityIcon hidden={disabled} />
+                </button>
+              </article>
+            );
+          })}
+        </div>
+      )}
+      <RefreshFooter onRefresh={refresh} refreshing={refreshing} updatedAt={updatedAt} />
     </section>
   );
 }

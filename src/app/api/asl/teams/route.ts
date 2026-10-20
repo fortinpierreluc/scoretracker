@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { getAslTeamRows } from "@/lib/asl";
 
+export const dynamic = "force-dynamic";
+
 export async function GET() {
   try {
     const teams = await getAslTeamRows();

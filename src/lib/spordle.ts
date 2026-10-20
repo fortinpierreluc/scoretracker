@@ -95,7 +95,7 @@ function followedSpordleIds() {
   return new Set(spordleTeams().map((team) => team.id));
 }
 
-async function spordle<T>(path: string, filter?: unknown, options?: { fresh?: boolean }): Promise<T> {
+async function spordle<T>(path: string, filter?: unknown): Promise<T> {
   const url = new URL(`${API_URL}${path}`);
   if (filter !== undefined) {
     url.searchParams.set("filter", JSON.stringify(filter));
@@ -103,7 +103,7 @@ async function spordle<T>(path: string, filter?: unknown, options?: { fresh?: bo
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `API-Key ${API_KEY}` },
-    ...(options?.fresh ? { cache: "no-store" } : { next: { revalidate: 30 } }),
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -165,11 +165,10 @@ function teamSide(team: SpordleTeam | undefined, teamId: number, followedIds: Se
 }
 
 function scoreFor(game: SpordleGame, teamId: number): number | null {
-  if (game.score && game.score[String(teamId)] !== undefined) {
-    return game.score[String(teamId)];
-  }
+  const fromScore = game.score?.[String(teamId)];
+  if (typeof fromScore === "number") return fromScore;
   const stats = game.teamStats?.find((row) => row.teamId === teamId);
-  return stats?.goalFor ?? null;
+  return typeof stats?.goalFor === "number" ? stats.goalFor : null;
 }
 
 function gameStatus(game: SpordleGame): GameDto["status"] {
@@ -266,8 +265,8 @@ function mapGame(
     scheduleName: schedule?.name ?? "Saison régulière",
     home: teamSide(game.homeTeam, game.homeTeamId, followedIds),
     away: teamSide(game.awayTeam, game.awayTeamId, followedIds),
-    homeScore: status === "upcoming" ? null : scoreFor(game, game.homeTeamId),
-    awayScore: status === "upcoming" ? null : scoreFor(game, game.awayTeamId),
+    homeScore: status === "upcoming" ? null : (scoreFor(game, game.homeTeamId) ?? 0),
+    awayScore: status === "upcoming" ? null : (scoreFor(game, game.awayTeamId) ?? 0),
     source: "spordle",
   };
 }

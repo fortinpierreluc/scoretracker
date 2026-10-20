@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { GameCard } from "@/components/GameCard";
 import { RangeFilters } from "@/components/RangeFilters";
+import { RefreshFooter } from "@/components/RefreshFooter";
 import { headingForDate } from "@/lib/dates";
 import { useDisabledTeams } from "@/lib/disabled-teams";
+import { useLiveData } from "@/lib/use-live-data";
 import type { GameDto, GameRange } from "@/lib/types";
 
 const ranges: Array<{ id: GameRange; label: string }> = [
@@ -31,38 +33,15 @@ function isVisibleOnMatches(game: GameDto, isDisabled: (id: number) => boolean) 
 
 export function MatchesView() {
   const [range, setRange] = useState<GameRange>("today");
-  const [games, setGames] = useState<GameDto[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const { isDisabled } = useDisabledTeams();
-
-  useEffect(() => {
-    let cancelled = false;
-    let first = true;
-    const load = async () => {
-      if (first) setLoading(true);
-      setError(null);
-      try {
-        const res = await fetch(`/api/games?range=${range}`, { cache: "no-store" });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error ?? "Impossible de charger les matchs");
-        if (!cancelled) setGames(data.games ?? []);
-      } catch (err) {
-        if (!cancelled) setError(err instanceof Error ? err.message : "Erreur de chargement");
-      } finally {
-        first = false;
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    load();
-    const timer = window.setInterval(load, 45000);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
+  const { data, loading, error, refreshing, updatedAt, refresh } = useLiveData(async () => {
+    const res = await fetch(`/api/games?range=${range}`, { cache: "no-store" });
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.error ?? "Impossible de charger les matchs");
+    return (payload.games ?? []) as GameDto[];
   }, [range]);
 
+  const games = useMemo(() => data ?? [], [data]);
   const visibleGames = useMemo(
     () => games.filter((game) => isVisibleOnMatches(game, isDisabled)),
     [games, isDisabled],
@@ -105,6 +84,10 @@ export function MatchesView() {
           </div>
         ))
       )}
+
+      {!loading ? (
+        <RefreshFooter onRefresh={refresh} refreshing={refreshing} updatedAt={updatedAt} />
+      ) : null}
     </section>
   );
 }
