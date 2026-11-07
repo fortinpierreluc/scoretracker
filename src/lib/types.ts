@@ -22,6 +22,7 @@ export type GameDto = {
   city: string;
   category: string;
   scheduleName: string;
+  scheduleId?: number;
   home: TeamSide;
   away: TeamSide;
   homeScore: number | null;
@@ -92,4 +93,10 @@ export type AslTeamRowDto = {
   teamCount: number | null;
   lastFive: LastFiveResult[];
   url: string;
+};
+
+export type SlqneTeamRowDto = AslTeamRowDto & {
+  programId: string;
+  programLabel: string;
+  group: "aaa" | "scolaire" | "hqne";
 };

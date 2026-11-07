@@ -263,6 +263,7 @@ function mapGame(
     city,
     category: formatCategory(game.category),
     scheduleName: schedule?.name ?? "Saison régulière",
+    scheduleId: game.scheduleId,
     home: teamSide(game.homeTeam, game.homeTeamId, followedIds),
     away: teamSide(game.awayTeam, game.awayTeamId, followedIds),
     homeScore: status === "upcoming" ? null : (scoreFor(game, game.homeTeamId) ?? 0),
@@ -305,6 +306,40 @@ export async function getLeagueGamesForTeams(
   return [...unique.values()]
     .map((game) => mapGame(game, leagues, followedIds))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
+
+/**
+ * Regular-season games for a set of teams, whatever league office runs them
+ * (useful for clubs whose teams play in several leagues).
+ */
+export async function getRegularSeasonGamesForTeams(
+  teamIds: number[],
+  from: string,
+  to: string,
+  followedIds: Set<number>,
+): Promise<GameDto[]> {
+  if (!teamIds.length) return [];
+
+  const games = await spordle<SpordleGame[]>("/sp/games", {
+    order: ["startTime ASC", "number ASC"],
+    where: {
+      and: [
+        { date: { between: [from, to] } },
+        {
+          or: teamIds.flatMap((id) => [{ awayTeamId: id }, { homeTeamId: id }]),
+        },
+      ],
+    },
+    include: ["teamStats", "surface", "category", "awayTeam", "homeTeam", "schedule"],
+  });
+
+  const unique = new Map<number, GameDto>();
+  for (const game of games) {
+    if (game.schedule?.type !== "League") continue;
+    unique.set(game.id, mapGame(game, [game.schedule], followedIds));
+  }
+
+  return [...unique.values()].sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 
 export async function getSpordleGames(range: GameRange): Promise<GameDto[]> {

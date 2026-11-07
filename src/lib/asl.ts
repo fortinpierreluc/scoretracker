@@ -55,13 +55,13 @@ export function compactCategory(category: string): string {
   return [klass, extra, female ? "Fém." : ""].filter(Boolean).join(" ") || category;
 }
 
-function formatPersonName(name: string) {
+export function formatPersonName(name: string) {
   return name
     .toLocaleLowerCase("fr-CA")
     .replace(/(?:^|[\s'-])\S/g, (chunk) => chunk.toLocaleUpperCase("fr-CA"));
 }
 
-function categorySortKey(category: string) {
+export function categorySortKey(category: string) {
   const compact = compactCategory(category);
   const age = Number(compact.match(/M(\d{2})/)?.[1] ?? 99);
   const female = compact.includes("Fém.") ? 1 : 0;
@@ -69,7 +69,7 @@ function categorySortKey(category: string) {
   return [age, female, division, compact] as const;
 }
 
-async function currentSeasonId(officeId: number) {
+export async function currentSeasonId(officeId: number) {
   const seasons = await spordle<Array<{ seasonId: string; isCurrent?: boolean }>>(
     `/sp/seasons?officeId=${officeId}`,
   );
@@ -103,7 +103,7 @@ export async function getAslGames(range: GameRange): Promise<GameDto[]> {
   return sortGamesByStart(games, range);
 }
 
-function resultForTeam(game: GameDto, teamId: number): LastFiveResult | null {
+export function resultForTeam(game: GameDto, teamId: number): LastFiveResult | null {
   if (game.status !== "final") return null;
   const teamScore = game.home.id === teamId ? game.homeScore : game.awayScore;
   const oppScore = game.home.id === teamId ? game.awayScore : game.homeScore;

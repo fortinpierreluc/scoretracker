@@ -39,7 +39,7 @@ function resultClass(result: LastFiveResult) {
   return "bg-white/8 text-slate-300";
 }
 
-function LastFive({ results }: { results: LastFiveResult[] }) {
+export function LastFive({ results }: { results: LastFiveResult[] }) {
   if (!results.length) {
     return <span className="text-xs text-slate-600">—</span>;
   }
@@ -114,7 +114,7 @@ function AslSchedule() {
   );
 }
 
-function formatRank(ranking: number | null, teamCount: number | null) {
+export function formatRank(ranking: number | null, teamCount: number | null) {
   if (!ranking) return "—";
   const ordinal = ranking === 1 ? "1er" : `${ranking}e`;
   return teamCount ? `${ordinal}/${teamCount}` : ordinal;

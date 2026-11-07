@@ -3,14 +3,14 @@
 import { useState } from "react";
 import { ArenasView } from "@/components/ArenasView";
 import { AslView } from "@/components/AslView";
-import { MatchesView } from "@/components/MatchesView";
+import { PersoView } from "@/components/PersoView";
+import { SlqneView } from "@/components/SlqneView";
 import { StandingsView } from "@/components/StandingsView";
-import { TeamsView } from "@/components/TeamsView";
 
 const tabs = [
-  { id: "matchs", label: "Matchs" },
+  { id: "perso", label: "Perso" },
   { id: "arenas", label: "Arénas" },
-  { id: "equipes", label: "Équipes" },
+  { id: "slqne", label: "SLQNE" },
   { id: "classements", label: "Classements" },
   { id: "asl", label: "ASL" },
 ] as const;
@@ -18,7 +18,7 @@ const tabs = [
 type TabId = (typeof tabs)[number]["id"];
 
 export function AppShell() {
-  const [tab, setTab] = useState<TabId>("matchs");
+  const [tab, setTab] = useState<TabId>("perso");
 
   return (
     <div className="mx-auto min-h-screen w-full max-w-4xl px-4 pb-16 pt-8 sm:px-6">
@@ -54,9 +54,9 @@ export function AppShell() {
         })}
       </nav>
 
-      {tab === "matchs" ? <MatchesView /> : null}
+      {tab === "perso" ? <PersoView /> : null}
       {tab === "arenas" ? <ArenasView /> : null}
-      {tab === "equipes" ? <TeamsView /> : null}
+      {tab === "slqne" ? <SlqneView /> : null}
       {tab === "asl" ? <AslView /> : null}
       {tab === "classements" ? <StandingsView /> : null}
     </div>

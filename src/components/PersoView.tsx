@@ -1,9 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { GameCard } from "@/components/GameCard";
+import { Modal } from "@/components/Modal";
 import { RangeFilters } from "@/components/RangeFilters";
 import { RefreshFooter } from "@/components/RefreshFooter";
+import { TeamsView } from "@/components/TeamsView";
 import { headingForDate } from "@/lib/dates";
 import { useDisabledTeams } from "@/lib/disabled-teams";
 import { useLiveData } from "@/lib/use-live-data";
@@ -25,14 +27,16 @@ function groupByDate(games: GameDto[]) {
   return [...groups.entries()];
 }
 
-function isVisibleOnMatches(game: GameDto, isDisabled: (id: number) => boolean) {
+function isVisibleOnPerso(game: GameDto, isDisabled: (id: number) => boolean) {
   const homeOn = game.home.isFollowed && !isDisabled(game.home.id);
   const awayOn = game.away.isFollowed && !isDisabled(game.away.id);
   return homeOn || awayOn;
 }
 
-export function MatchesView() {
+export function PersoView() {
   const [range, setRange] = useState<GameRange>("today");
+  const [teamsOpen, setTeamsOpen] = useState(false);
+  const closeTeams = useCallback(() => setTeamsOpen(false), []);
   const { isDisabled } = useDisabledTeams();
   const { data, loading, error, refreshing, updatedAt, refresh } = useLiveData(async () => {
     const res = await fetch(`/api/games?range=${range}`, { cache: "no-store" });
@@ -43,14 +47,42 @@ export function MatchesView() {
 
   const games = useMemo(() => data ?? [], [data]);
   const visibleGames = useMemo(
-    () => games.filter((game) => isVisibleOnMatches(game, isDisabled)),
+    () => games.filter((game) => isVisibleOnPerso(game, isDisabled)),
     [games, isDisabled],
   );
   const grouped = useMemo(() => groupByDate(visibleGames), [visibleGames]);
 
   return (
     <section className="space-y-6">
-      <RangeFilters ranges={ranges} value={range} onChange={setRange} />
+      <div className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">
+          <RangeFilters ranges={ranges} value={range} onChange={setRange} />
+        </div>
+        <button
+          type="button"
+          onClick={() => setTeamsOpen(true)}
+          className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/10 bg-white/6 px-3 py-2 text-[13px] text-slate-200 transition hover:bg-white/10 sm:px-4 sm:text-sm"
+          title="Choisir les équipes suivies"
+        >
+          <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" aria-hidden="true">
+            <path
+              d="M4 7h10M18 7h2M4 17h4M12 17h8M14 4.5v5M8 14.5v5"
+              stroke="currentColor"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+            />
+          </svg>
+          <span className="hidden sm:inline">Mes équipes</span>
+          <span className="sm:hidden">Équipes</span>
+        </button>
+      </div>
+
+      <Modal open={teamsOpen} title="Mes équipes" onClose={closeTeams}>
+        <p className="mb-4 text-sm text-slate-400">
+          Touche l&apos;œil pour afficher ou masquer l&apos;horaire d&apos;une équipe dans l&apos;onglet Perso.
+        </p>
+        <TeamsView />
+      </Modal>
 
       {loading ? (
         <div className="space-y-3">
