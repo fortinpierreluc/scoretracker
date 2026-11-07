@@ -1,4 +1,9 @@
-import { programsForGroups, slqneTeamUrl } from "@/data/slqne";
+import {
+  matchesProgram,
+  programsForGroups,
+  SLQNE_SEASON_OFFICE_ID,
+  slqneTeamUrl,
+} from "@/data/slqne";
 import type { SlqneGroupId, SlqneProgram } from "@/data/slqne";
 import {
   categorySortKey,
@@ -11,12 +16,15 @@ import { rangeToDates, shiftDate, sortGamesByStart, todayInMontreal } from "@/li
 import { formatCategory, getRegularSeasonGamesForTeams, spordle } from "@/lib/spordle";
 import type { GameDto, GameRange, LastFiveResult, SlqneTeamRowDto } from "@/lib/types";
 
+type SpordleCategory = NonNullable<Parameters<typeof formatCategory>[0]>;
+
 type SpordleTeam = {
   id: number;
   name: string;
   shortName: string;
   logoUrl?: string | null;
-  category?: Parameters<typeof formatCategory>[0];
+  seasonId?: string;
+  category?: SpordleCategory;
 };
 
 type TeamWithProgram = { team: SpordleTeam; program: SlqneProgram };
@@ -47,22 +55,63 @@ function compareTeams(a: SpordleTeam, b: SpordleTeam) {
   return 0;
 }
 
-async function getProgramTeams(program: SlqneProgram): Promise<TeamWithProgram[]> {
-  const seasonId = await currentSeasonId(program.officeId);
+async function getProgramTeams(program: SlqneProgram, seasonId: string): Promise<TeamWithProgram[]> {
   const teams = await spordle<SpordleTeam[]>("/sp/teams", {
-    where: { officeId: program.officeId, seasonId },
+    where: {
+      and: [
+        { seasonId },
+        {
+          or: program.likes.flatMap((like) => [{ name: { like } }, { shortName: { like } }]),
+        },
+      ],
+    },
     include: ["category"],
   });
-  return teams.sort(compareTeams).map((team) => ({ team, program }));
+
+  const unique = new Map<number, SpordleTeam>();
+  for (const team of teams) {
+    if (team.seasonId && team.seasonId !== seasonId) continue;
+    if (!matchesProgram(program, team.name, team.shortName)) continue;
+    unique.set(team.id, team);
+  }
+
+  return [...unique.values()].sort(compareTeams).map((team) => ({ team, program }));
 }
 
 async function getTeams(groups: SlqneGroupId[]): Promise<TeamWithProgram[]> {
-  const batches = await Promise.all(
-    programsForGroups(groups).map((program) =>
-      getProgramTeams(program).catch(() => [] as TeamWithProgram[]),
-    ),
+  const programs = programsForGroups(groups);
+  if (!programs.length) return [];
+
+  const seasonId = await currentSeasonId(SLQNE_SEASON_OFFICE_ID);
+  const results = await Promise.allSettled(
+    programs.map((program) => getProgramTeams(program, seasonId)),
   );
-  return batches.flat();
+
+  const failures = results.filter((result) => result.status === "rejected");
+  if (failures.length === results.length) {
+    const reason = (failures[0] as PromiseRejectedResult).reason;
+    throw reason instanceof Error ? reason : new Error("Recherche des équipes impossible");
+  }
+
+  const seen = new Set<number>();
+  const teams: TeamWithProgram[] = [];
+  for (const result of results) {
+    if (result.status !== "fulfilled") continue;
+    for (const entry of result.value) {
+      if (seen.has(entry.team.id)) continue;
+      seen.add(entry.team.id);
+      teams.push(entry);
+    }
+  }
+  return teams;
+}
+
+function programHeading(program: SlqneProgram, category?: SpordleCategory) {
+  if (!program.splitByGender) return { id: program.id, label: program.label };
+  if (category?.gender === "Female") {
+    return { id: `${program.id}-feminin`, label: `${program.label} — Féminin` };
+  }
+  return { id: `${program.id}-masculin`, label: `${program.label} — Masculin` };
 }
 
 export async function getSlqneGames(groups: SlqneGroupId[], range: GameRange): Promise<GameDto[]> {
@@ -119,7 +168,8 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
     if (raw) coachByTeam.set(member.teamId, formatPersonName(raw));
   }
 
-  return teams.map(({ team, program }) => {
+  const rows = teams.map(({ team, program }) => {
+    const heading = programHeading(program, team.category);
     const category = formatCategory(team.category);
     const scheduleId = scheduleByTeam.get(team.id);
     const rows = scheduleId ? (standingsBySchedule.get(scheduleId) ?? []) : [];
@@ -142,9 +192,17 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
       teamCount: rows.length || null,
       lastFive,
       url: slqneTeamUrl(program, team.id),
-      programId: program.id,
-      programLabel: program.label,
+      programId: heading.id,
+      programLabel: heading.label,
       group: program.group,
     };
   });
+
+  // Regroupe les équipes d'un même titre (ex. As de Québec — Féminin) l'une après l'autre.
+  const order = new Map<string, number>();
+  for (const row of rows) if (!order.has(row.programId)) order.set(row.programId, order.size);
+  return rows
+    .map((row, index) => ({ row, index }))
+    .sort((a, b) => order.get(a.row.programId)! - order.get(b.row.programId)! || a.index - b.index)
+    .map(({ row }) => row);
 }
