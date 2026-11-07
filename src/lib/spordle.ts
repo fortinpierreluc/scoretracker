@@ -308,9 +308,52 @@ export async function getLeagueGamesForTeams(
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
 
+const TEAM_CHUNK_SIZE = 15;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
 /**
- * Regular-season games for a set of teams, whatever league office runs them
- * (useful for clubs whose teams play in several leagues).
+ * Raw regular-season games for many teams. The team list is split into small batches
+ * because Spordle receives the filter in the URL, which gets too long with dozens of teams.
+ */
+async function fetchRegularSeasonGames(
+  teamIds: number[],
+  from: string,
+  to: string,
+  include: string[],
+): Promise<SpordleGame[]> {
+  if (!teamIds.length) return [];
+
+  const batches = await Promise.all(
+    chunk([...new Set(teamIds)], TEAM_CHUNK_SIZE).map((ids) =>
+      spordle<SpordleGame[]>("/sp/games", {
+        order: ["startTime ASC", "number ASC"],
+        where: {
+          and: [
+            { date: { between: [from, to] } },
+            { or: ids.flatMap((id) => [{ awayTeamId: id }, { homeTeamId: id }]) },
+          ],
+        },
+        include,
+      }),
+    ),
+  );
+
+  const unique = new Map<number, SpordleGame>();
+  for (const game of batches.flat()) {
+    if (game.schedule?.type !== "League") continue;
+    unique.set(game.id, game);
+  }
+  return [...unique.values()];
+}
+
+/**
+ * Regular-season hockey games for a set of teams, whatever league office runs them
+ * (useful for schools and clubs whose teams play in several leagues or sports).
  */
 export async function getRegularSeasonGamesForTeams(
   teamIds: number[],
@@ -318,28 +361,44 @@ export async function getRegularSeasonGamesForTeams(
   to: string,
   followedIds: Set<number>,
 ): Promise<GameDto[]> {
-  if (!teamIds.length) return [];
+  const games = await fetchRegularSeasonGames(teamIds, from, to, [
+    "teamStats",
+    "surface",
+    "category",
+    "awayTeam",
+    "homeTeam",
+    "schedule",
+  ]);
 
-  const games = await spordle<SpordleGame[]>("/sp/games", {
-    order: ["startTime ASC", "number ASC"],
-    where: {
-      and: [
-        { date: { between: [from, to] } },
-        {
-          or: teamIds.flatMap((id) => [{ awayTeamId: id }, { homeTeamId: id }]),
-        },
-      ],
-    },
-    include: ["teamStats", "surface", "category", "awayTeam", "homeTeam", "schedule"],
-  });
+  return games
+    .filter(isHockeyGame)
+    .map((game) => mapGame(game, game.schedule ? [game.schedule] : [], followedIds))
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
+}
 
-  const unique = new Map<number, GameDto>();
+/**
+ * For each team, how many of its regular-season games in the window were hockey
+ * and how many were another sport (a school's soccer or basketball teams, say).
+ */
+export async function getTeamSportActivity(
+  teamIds: number[],
+  from: string,
+  to: string,
+): Promise<Map<number, { hockey: number; other: number }>> {
+  const games = await fetchRegularSeasonGames(teamIds, from, to, ["surface", "schedule"]);
+  const wanted = new Set(teamIds);
+  const activity = new Map<number, { hockey: number; other: number }>();
   for (const game of games) {
-    if (game.schedule?.type !== "League") continue;
-    unique.set(game.id, mapGame(game, [game.schedule], followedIds));
+    const hockey = isHockeyGame(game);
+    for (const teamId of [game.homeTeamId, game.awayTeamId]) {
+      if (!wanted.has(teamId)) continue;
+      const entry = activity.get(teamId) ?? { hockey: 0, other: 0 };
+      if (hockey) entry.hockey += 1;
+      else entry.other += 1;
+      activity.set(teamId, entry);
+    }
   }
-
-  return [...unique.values()].sort((a, b) => a.startTime.localeCompare(b.startTime));
+  return activity;
 }
 
 export async function getSpordleGames(range: GameRange): Promise<GameDto[]> {

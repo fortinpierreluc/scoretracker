@@ -1,5 +1,6 @@
 import {
   matchesProgram,
+  normalizeTeamName,
   programsForGroups,
   SLQNE_SEASON_OFFICE_ID,
   slqneTeamUrl,
@@ -13,7 +14,12 @@ import {
   resultForTeam,
 } from "@/lib/asl";
 import { rangeToDates, shiftDate, sortGamesByStart, todayInMontreal } from "@/lib/dates";
-import { formatCategory, getRegularSeasonGamesForTeams, spordle } from "@/lib/spordle";
+import {
+  formatCategory,
+  getRegularSeasonGamesForTeams,
+  getTeamSportActivity,
+  spordle,
+} from "@/lib/spordle";
 import type { GameDto, GameRange, LastFiveResult, SlqneTeamRowDto } from "@/lib/types";
 
 type SpordleCategory = NonNullable<Parameters<typeof formatCategory>[0]>;
@@ -44,6 +50,7 @@ type Member = {
 };
 
 const HISTORY_DAYS = 120;
+const SPORT_CHECK_DAYS = 200;
 
 function compareTeams(a: SpordleTeam, b: SpordleTeam) {
   const ka = categorySortKey(formatCategory(a.category));
@@ -78,7 +85,38 @@ async function getProgramTeams(program: SlqneProgram, seasonId: string): Promise
   return [...unique.values()].sort(compareTeams).map((team) => ({ team, program }));
 }
 
-async function getTeams(groups: SlqneGroupId[]): Promise<TeamWithProgram[]> {
+const OTHER_SPORT = /soccer|futsal|basket|volley|football|badminton|rugby|baseball|ultimate|natation|athletisme|cross-country/;
+
+function looksLikeOtherSport(team: SpordleTeam) {
+  const text = normalizeTeamName(
+    [team.name, team.shortName, formatCategory(team.category)].filter(Boolean).join(" "),
+  );
+  return OTHER_SPORT.test(text);
+}
+
+/** Drops teams of other sports that share a school's name (soccer, basketball…). */
+async function keepHockeyTeams(teams: TeamWithProgram[]): Promise<TeamWithProgram[]> {
+  const candidates = teams.filter(({ team }) => !looksLikeOtherSport(team));
+  if (!candidates.length) return [];
+
+  const today = todayInMontreal();
+  const activity = await getTeamSportActivity(
+    candidates.map(({ team }) => team.id),
+    shiftDate(today, -SPORT_CHECK_DAYS),
+    shiftDate(today, 60),
+  );
+
+  return candidates.filter(({ team }) => {
+    const entry = activity.get(team.id);
+    if (!entry) return true;
+    return entry.hockey > 0 || entry.other === 0;
+  });
+}
+
+const TEAMS_CACHE_MS = 10 * 60 * 1000;
+const teamsCache = new Map<string, { at: number; teams: TeamWithProgram[] }>();
+
+async function discoverTeams(groups: SlqneGroupId[]): Promise<TeamWithProgram[]> {
   const programs = programsForGroups(groups);
   if (!programs.length) return [];
 
@@ -103,6 +141,15 @@ async function getTeams(groups: SlqneGroupId[]): Promise<TeamWithProgram[]> {
       teams.push(entry);
     }
   }
+  return keepHockeyTeams(teams);
+}
+
+async function getTeams(groups: SlqneGroupId[]): Promise<TeamWithProgram[]> {
+  const key = [...groups].sort().join(",");
+  const cached = teamsCache.get(key);
+  if (cached && Date.now() - cached.at < TEAMS_CACHE_MS) return cached.teams;
+  const teams = await discoverTeams(groups);
+  teamsCache.set(key, { at: Date.now(), teams });
   return teams;
 }
 
@@ -130,10 +177,15 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
   const today = todayInMontreal();
 
   const [members, history] = await Promise.all([
-    spordle<Member[]>("/sp/members", {
-      where: { teamId: { inq: ids } },
-      include: ["participant"],
-    }).catch(() => [] as Member[]),
+    Promise.all(
+      Array.from({ length: Math.ceil(ids.length / 25) }, (_, i) => ids.slice(i * 25, i * 25 + 25)).map(
+        (batch) =>
+          spordle<Member[]>("/sp/members", {
+            where: { teamId: { inq: batch } },
+            include: ["participant"],
+          }).catch(() => [] as Member[]),
+      ),
+    ).then((batches) => batches.flat()),
     getRegularSeasonGamesForTeams(ids, shiftDate(today, -HISTORY_DAYS), today, new Set(ids)).catch(
       () => [] as GameDto[],
     ),
