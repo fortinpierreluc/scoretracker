@@ -203,18 +203,25 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
     ),
   ]);
 
-  // Each team's league is the one its most recent regular-season game belongs to.
-  const scheduleByTeam = new Map<number, number>();
+  // Every league schedule each team played in, with how many games it played there.
+  const wanted = new Set(ids);
+  const schedulesByTeam = new Map<number, Map<number, number>>();
   for (const game of history) {
     if (!game.scheduleId) continue;
     for (const side of [game.home.id, game.away.id]) {
-      if (ids.includes(side)) scheduleByTeam.set(side, game.scheduleId);
+      if (!wanted.has(side)) continue;
+      const counts = schedulesByTeam.get(side) ?? new Map<number, number>();
+      counts.set(game.scheduleId, (counts.get(game.scheduleId) ?? 0) + 1);
+      schedulesByTeam.set(side, counts);
     }
   }
 
+  const allScheduleIds = new Set<number>();
+  for (const counts of schedulesByTeam.values()) for (const id of counts.keys()) allScheduleIds.add(id);
+
   const standingsBySchedule = new Map<number, Standing[]>();
   await Promise.all(
-    [...new Set(scheduleByTeam.values())].map(async (scheduleId) => {
+    [...allScheduleIds].map(async (scheduleId) => {
       const rows = await spordle<Standing[]>(`/sp/schedules/${scheduleId}/teamStats`, {
         where: { team: { name: { neq: "TBA" } } },
         include: ["team"],
@@ -222,6 +229,34 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
       standingsBySchedule.set(scheduleId, rows);
     }),
   );
+
+  // The team's league is the schedule where it played the most games AND appears in the standings.
+  function standingFor(teamId: number): { row: Standing; rows: Standing[] } | null {
+    const counts = schedulesByTeam.get(teamId);
+    if (!counts) return null;
+    const ordered = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+    for (const [scheduleId] of ordered) {
+      const rows = standingsBySchedule.get(scheduleId) ?? [];
+      const row = rows.find((item) => Number(item.teamId) === teamId);
+      if (row) return { row, rows };
+    }
+    return null;
+  }
+
+  /** Record rebuilt from the final scores, when Spordle has no standings row for the team. */
+  function recordFromGames(teamId: number) {
+    let wins = 0;
+    let losses = 0;
+    let ties = 0;
+    for (const game of history) {
+      if (game.home.id !== teamId && game.away.id !== teamId) continue;
+      const result = resultForTeam(game, teamId);
+      if (result === "V") wins += 1;
+      else if (result === "D") losses += 1;
+      else if (result === "N") ties += 1;
+    }
+    return wins + losses + ties > 0 ? `${wins}-${losses}-${ties}` : null;
+  }
 
   const coachByTeam = new Map<number, string>();
   for (const member of members) {
@@ -235,9 +270,10 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
   const rows = teams.map(({ team, program }) => {
     const heading = programHeading(program, team.category);
     const category = formatCategory(team.category);
-    const scheduleId = scheduleByTeam.get(team.id);
-    const rows = scheduleId ? (standingsBySchedule.get(scheduleId) ?? []) : [];
-    const row = rows.find((item) => item.teamId === team.id);
+    const standing = standingFor(team.id);
+    const row = standing?.row;
+    const rows = standing?.rows ?? [];
+    const computedRecord = row ? null : recordFromGames(team.id);
     const lastFive = history
       .filter((game) => game.home.id === team.id || game.away.id === team.id)
       .map((game) => resultForTeam(game, team.id))
@@ -256,7 +292,9 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
       logoUrl: team.logoUrl ?? null,
       category,
       coach: coachByTeam.get(team.id) ?? null,
-      record: row ? `${row.wins ?? 0}-${row.losses ?? 0}-${row.otl ?? 0}` : "0-0-0",
+      record: row
+        ? `${row.wins ?? 0}-${row.losses ?? 0}-${row.otl ?? 0}`
+        : (computedRecord ?? "0-0-0"),
       ranking: row?.ranking ?? null,
       teamCount: rows.length || null,
       lastFive,
@@ -265,7 +303,7 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
       programLabel: heading.label,
       group: program.group,
       subtitle: program.group === "hqne" ? teamNickname(team) : null,
-      hasGames: Boolean(row) || lastFive.length > 0,
+      hasGames: Boolean(row) || lastFive.length > 0 || computedRecord !== null,
     };
   });
 
