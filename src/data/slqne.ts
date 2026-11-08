@@ -59,8 +59,8 @@ export const slqnePrograms: SlqneProgram[] = [
     id: "cardinal-roy",
     group: "scolaire",
     label: "École Cardinal-Roy",
-    likes: ["%Cardinal-Roy%", "%Cardinal Roy%", "%CARDINAL-ROY%", "%CARDINAL ROY%"],
-    needles: [/cardinal[- ]roy/],
+    likes: ["%Cardinal%Roy%", "%CARDINAL%ROY%", "%Cardinal%ROY%", "%cardinal%roy%"],
+    needles: [/cardinal\W*roy/],
     siteUrl: "https://scolaire.rseqhockey.com/fr",
   },
   {

@@ -242,6 +242,30 @@ function isHockeyGame(game: SpordleGame) {
   return game.surface?.type === "Ice" || !game.surface?.type;
 }
 
+const OTHER_SPORT_NAMES =
+  /soccer|futsal|basket|volley|football|badminton|rugby|baseball|ultimate|natation|athletisme|cross-country/;
+
+/**
+ * Looser hockey check for school programs: a game is set aside only when something
+ * clearly says it is another sport. A rink whose sport list is incomplete (no "Hockey")
+ * no longer hides a real hockey game.
+ */
+function isLikelyHockeyGame(game: SpordleGame) {
+  const text = [game.schedule?.name, game.category?.name, game.category?.nameFr, game.category?.i18n?.fr?.name]
+    .filter(Boolean)
+    .join(" ")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (OTHER_SPORT_NAMES.test(text)) return false;
+
+  const sports = game.surface?.sports;
+  if (Array.isArray(sports) && sports.includes("Hockey")) return true;
+  if (game.surface?.type === "Ice") return true;
+  if (Array.isArray(sports) && sports.length > 0) return false;
+  return true;
+}
+
 function mapGame(
   game: SpordleGame,
   leagues: SpordleSchedule[],
@@ -371,7 +395,7 @@ export async function getRegularSeasonGamesForTeams(
   ]);
 
   return games
-    .filter(isHockeyGame)
+    .filter(isLikelyHockeyGame)
     .map((game) => mapGame(game, game.schedule ? [game.schedule] : [], followedIds))
     .sort((a, b) => a.startTime.localeCompare(b.startTime));
 }
