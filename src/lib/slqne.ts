@@ -273,7 +273,10 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
     const standing = standingFor(team.id);
     const row = standing?.row;
     const rows = standing?.rows ?? [];
-    const computedRecord = row ? null : recordFromGames(team.id);
+    const computedRecord = recordFromGames(team.id);
+    const rowTotal = row ? (row.wins ?? 0) + (row.losses ?? 0) + (row.otl ?? 0) : 0;
+    // Spordle's standings row wins when it has numbers; otherwise rebuild from final scores.
+    const useRow = Boolean(row) && rowTotal > 0;
     const lastFive = history
       .filter((game) => game.home.id === team.id || game.away.id === team.id)
       .map((game) => resultForTeam(game, team.id))
@@ -292,9 +295,10 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
       logoUrl: team.logoUrl ?? null,
       category,
       coach: coachByTeam.get(team.id) ?? null,
-      record: row
-        ? `${row.wins ?? 0}-${row.losses ?? 0}-${row.otl ?? 0}`
-        : (computedRecord ?? "0-0-0"),
+      record:
+        useRow && row
+          ? `${row.wins ?? 0}-${row.losses ?? 0}-${row.otl ?? 0}`
+          : (computedRecord ?? "0-0-0"),
       ranking: row?.ranking ?? null,
       teamCount: rows.length || null,
       lastFive,

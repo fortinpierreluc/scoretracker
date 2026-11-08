@@ -334,6 +334,23 @@ export async function getLeagueGamesForTeams(
 
 const TEAM_CHUNK_SIZE = 15;
 
+/**
+ * Spordle types some non-regular-season phases as "League" too (Hockey Québec's
+ * « séries de classement », pre-season, showcases…). Those are set aside by name.
+ */
+const NOT_REGULAR_SEASON =
+  /class(e|i)ment|pre[- ]?saison|hors[- ]?concours|exhibition|horaire hors|tournoi|festival|vitrine|showcase|serie|eliminatoire|playoff|finale|championnat|coupe|tournament/;
+
+function isRegularSeasonSchedule(schedule?: SpordleSchedule) {
+  if (!schedule || schedule.type !== "League") return false;
+  const name = (schedule.name ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+  if (/reguli/.test(name)) return true;
+  return !NOT_REGULAR_SEASON.test(name);
+}
+
 function chunk<T>(items: T[], size: number): T[][] {
   const chunks: T[][] = [];
   for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
@@ -369,7 +386,7 @@ async function fetchRegularSeasonGames(
 
   const unique = new Map<number, SpordleGame>();
   for (const game of batches.flat()) {
-    if (game.schedule?.type !== "League") continue;
+    if (!isRegularSeasonSchedule(game.schedule)) continue;
     unique.set(game.id, game);
   }
   return [...unique.values()];
