@@ -26,6 +26,8 @@ export type SlqneProgram = {
   likes: string[];
   /** Vérification finale sur le nom normalisé (sans accents, en minuscules). */
   needles: RegExp[];
+  /** Équipes à écarter même si leur nom correspond (sur le nom normalisé). */
+  excludes?: RegExp[];
   /** Sépare les équipes masculines et féminines sous deux titres. */
   splitByGender?: boolean;
   /** Site public Spordle utilisé pour les liens vers les équipes. */
@@ -74,13 +76,15 @@ export const slqnePrograms: SlqneProgram[] = [
       "%MONT-STE-ANNE%",
     ],
     needles: [/mont[- ]s(ain)?te[- ]anne/],
+    // Le Collège du Mont-Sainte-Anne n'est pas suivi : seulement les Vikings de l'ESMSA.
+    excludes: [/college/, /\bcollegial\b/],
     siteUrl: "https://scolaire.rseqhockey.com/fr",
   },
   {
     id: "seigneurie",
     group: "scolaire",
     label: "École secondaire de la Seigneurie",
-    likes: ["%Seigneurie%", "%SEIGNEURIE%"],
+    likes: ["%Seigneurie%", "%SEIGNEURIE%", "%seigneurie%"],
     needles: [/seigneurie/],
     siteUrl: "https://scolaire.rseqhockey.com/fr",
   },
@@ -110,6 +114,10 @@ export function matchesProgram(program: SlqneProgram, ...names: Array<string | n
     if (!name) return false;
     const normalized = normalizeTeamName(name);
     return program.needles.some((needle) => needle.test(normalized));
+  }) && !names.some((name) => {
+    if (!name || !program.excludes) return false;
+    const normalized = normalizeTeamName(name);
+    return program.excludes.some((exclude) => exclude.test(normalized));
   });
 }
 

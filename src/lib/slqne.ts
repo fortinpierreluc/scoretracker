@@ -17,7 +17,6 @@ import { rangeToDates, shiftDate, sortGamesByStart, todayInMontreal } from "@/li
 import {
   formatCategory,
   getRegularSeasonGamesForTeams,
-  getTeamSportActivity,
   spordle,
 } from "@/lib/spordle";
 import type { GameDto, GameRange, LastFiveResult, SlqneTeamRowDto } from "@/lib/types";
@@ -50,7 +49,6 @@ type Member = {
 };
 
 const HISTORY_DAYS = 120;
-const SPORT_CHECK_DAYS = 200;
 
 function compareTeams(a: SpordleTeam, b: SpordleTeam) {
   const ka = categorySortKey(formatCategory(a.category));
@@ -95,22 +93,8 @@ function looksLikeOtherSport(team: SpordleTeam) {
 }
 
 /** Drops teams of other sports that share a school's name (soccer, basketball…). */
-async function keepHockeyTeams(teams: TeamWithProgram[]): Promise<TeamWithProgram[]> {
-  const candidates = teams.filter(({ team }) => !looksLikeOtherSport(team));
-  if (!candidates.length) return [];
-
-  const today = todayInMontreal();
-  const activity = await getTeamSportActivity(
-    candidates.map(({ team }) => team.id),
-    shiftDate(today, -SPORT_CHECK_DAYS),
-    shiftDate(today, 60),
-  );
-
-  return candidates.filter(({ team }) => {
-    const entry = activity.get(team.id);
-    if (!entry) return true;
-    return entry.hockey > 0 || entry.other === 0;
-  });
+function keepHockeyTeams(teams: TeamWithProgram[]): TeamWithProgram[] {
+  return teams.filter(({ team }) => !looksLikeOtherSport(team));
 }
 
 const TEAMS_CACHE_MS = 10 * 60 * 1000;
@@ -151,6 +135,34 @@ async function getTeams(groups: SlqneGroupId[]): Promise<TeamWithProgram[]> {
   const teams = await discoverTeams(groups);
   teamsCache.set(key, { at: Date.now(), teams });
   return teams;
+}
+
+/** « M15 AAA Élite » ou « M15 AAA Relève » pour les As de Québec. */
+function aaaLabel(team: SpordleTeam, category: string) {
+  const text = normalizeTeamName([team.name, team.shortName, category].filter(Boolean).join(" "));
+  const age = compactCategory(category).match(/M\d{2}/)?.[0] ?? text.match(/\b[mu](\d{2})\b/)?.[0]?.toUpperCase().replace("U", "M") ?? "";
+  const level = /releve|\baaa[- ]?r\b/.test(text)
+    ? "Relève"
+    : /elite|\baaa[- ]?e\b/.test(text)
+      ? "Élite"
+      : "";
+  return [age, "AAA", level].filter(Boolean).join(" ");
+}
+
+/** « M15 AA », « M13 BB » pour les équipes HQNE. */
+function hqneLabel(category: string) {
+  const age = compactCategory(category).match(/M\d{2}/)?.[0] ?? "";
+  const klass = category.match(/\b(AAA|AA|BB|A|B|C)\b/)?.[0] ?? "";
+  return [age, klass].filter(Boolean).join(" ") || compactCategory(category);
+}
+
+/** Nom d'équipe lisible : « SEIGNEURS HQNE » plutôt que « Seigneurs HQNE M15 AA ». */
+function teamNickname(team: SpordleTeam) {
+  const raw = team.name || team.shortName || "";
+  return raw
+    .replace(/\s*[-–]?\s*\b[MU]\s?\d{2}\b.*$/i, "")
+    .replace(/\s+\b(AAA|AA|BB|A|B|C)\b\s*$/i, "")
+    .trim() || raw;
 }
 
 function programHeading(program: SlqneProgram, category?: SpordleCategory) {
@@ -235,7 +247,12 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
     return {
       id: team.id,
       name: team.name,
-      shortName: compactCategory(category),
+      shortName:
+        program.group === "aaa"
+          ? aaaLabel(team, category)
+          : program.group === "hqne"
+            ? hqneLabel(category)
+            : compactCategory(category),
       logoUrl: team.logoUrl ?? null,
       category,
       coach: coachByTeam.get(team.id) ?? null,
@@ -247,13 +264,23 @@ export async function getSlqneTeamRows(groups: SlqneGroupId[]): Promise<SlqneTea
       programId: heading.id,
       programLabel: heading.label,
       group: program.group,
+      subtitle: program.group === "hqne" ? teamNickname(team) : null,
+      hasGames: Boolean(row) || lastFive.length > 0,
     };
   });
 
   // Regroupe les équipes d'un même titre (ex. As de Québec — Féminin) l'une après l'autre.
   const order = new Map<string, number>();
   for (const row of rows) if (!order.has(row.programId)) order.set(row.programId, order.size);
+  // Les inscriptions sans aucun match de ligue cette saison (doublons, équipes d'autres
+  // programmes ou d'autres sports) sont retirées : on garde seulement les équipes avec une fiche.
   return rows
+    .filter((row) => row.hasGames)
+    .map((row) => {
+      const { hasGames, ...rest } = row;
+      void hasGames;
+      return rest;
+    })
     .map((row, index) => ({ row, index }))
     .sort((a, b) => order.get(a.row.programId)! - order.get(b.row.programId)! || a.index - b.index)
     .map(({ row }) => row);

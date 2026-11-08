@@ -99,4 +99,6 @@ export type SlqneTeamRowDto = AslTeamRowDto & {
   programId: string;
   programLabel: string;
   group: "aaa" | "scolaire" | "hqne";
+  /** Nom de l'équipe affiché sous la catégorie (ex. équipes HQNE). */
+  subtitle: string | null;
 };

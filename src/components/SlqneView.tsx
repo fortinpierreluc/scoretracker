@@ -245,8 +245,13 @@ function SlqneTeams({ groups }: { groups: SlqneGroupId[] }) {
                         title={team.name}
                       >
                         <TeamLogo src={team.logoUrl} alt={team.shortName} size={28} />
-                        <span className="truncate font-[family-name:var(--font-oswald)] text-sm font-semibold uppercase tracking-[0.06em] text-white">
-                          {team.shortName}
+                        <span className="min-w-0">
+                          <span className="block truncate font-[family-name:var(--font-oswald)] text-sm font-semibold uppercase tracking-[0.06em] text-white">
+                            {team.shortName}
+                          </span>
+                          {team.subtitle ? (
+                            <span className="block truncate text-xs text-slate-400">{team.subtitle}</span>
+                          ) : null}
                         </span>
                       </a>
                       <p className="truncate text-sm text-slate-300">{team.coach ?? "—"}</p>
